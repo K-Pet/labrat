@@ -11,7 +11,7 @@ class LabResource:
         self.Owner = ""
         self.CreationTime = None
         self.LastModifiedTime = None
-        self.Labels = labels.JsonEncodedDict()
+        self.Labels = labels.Labels()
 
         if id == None:
             self.ID = new_uuid()
