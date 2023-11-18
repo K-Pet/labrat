@@ -1,8 +1,8 @@
-import meta
+import dbresource
 
 
-class Datacenter(meta.Meta):
+class Datacenter(dbresource.LabResource):
     def __init__(self, id, name, address) -> None:
-        super(meta.Meta, self).__init__(id, name)
+        super(dbresource.LabResource, self).__init__(id, name)
         self.Address = address
         self.LabIDs = set() # set of lab IDs

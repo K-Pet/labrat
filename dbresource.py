@@ -3,7 +3,7 @@ import uuid
 import labels
 
 
-class Meta:
+class LabResource:
     def __init__(self, id, name) -> None:
         self.ID = id
         self.Name = name
@@ -11,7 +11,7 @@ class Meta:
         self.Owner = ""
         self.CreationTime = None
         self.LastModifiedTime = None
-        self.Labels = labels.Labels()
+        self.Labels = labels.JsonEncodedDict()
 
         if id == None:
             self.ID = new_uuid()

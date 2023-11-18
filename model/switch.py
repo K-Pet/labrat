@@ -1,7 +1,7 @@
-import meta
+import dbresource
 
 
-class Switch(meta.Meta):
+class Switch(dbresource.LabResource):
     def __init__(self, id, name) -> None:
         super().__init__(id, name)
         self.NumPorts = 0

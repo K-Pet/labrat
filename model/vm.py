@@ -1,9 +1,9 @@
-import meta
+import dbresource
 
 
-class VM(meta.Meta):
+class VM(dbresource.LabResource):
     def __init__(self, id, name) -> None:
-        super(meta.Meta, self).__init__(id, name)
+        super(dbresource.LabResource, self).__init__(id, name)
         self.SerialNumber = None
         self.BoardIP = None
         self.Model = None
