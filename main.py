@@ -1,13 +1,11 @@
+import uuid
 from fastapi import FastAPI, HTTPException, Depends
 from typing import Annotated, Any, Dict, List
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from database import SessionLocal, engine
 import models
-import sys
 from fastapi.middleware.cors import CORSMiddleware
-
-sys.path.insert(0, '/Users/kobe/Desktop/Projects/labrat/model')
 
 app = FastAPI()
 
@@ -30,6 +28,10 @@ class LabResourceBase(BaseModel):
     owner: str
     creation_time: str
     last_modified_time: str
+    labels: list
+    class Config:
+        extra = 'forbid'
+        orm_mode = True
 
 class DatacenterCreate(LabResourceBase):
     address: str
@@ -38,8 +40,6 @@ class Datacenter(DatacenterCreate):
     id: str
     lab_ids: List[str]
 
-    class Config:
-        orm_mode = True
 
 class LabCreate(LabResourceBase):
     pass
@@ -48,8 +48,7 @@ class Lab(LabCreate):
     id: str
     rack_ids: List[str]
 
-    class Config:
-        orm_mode = True
+
 
 class RackCreate(LabResourceBase):
     pass
@@ -59,8 +58,7 @@ class Rack(RackCreate):
     server_ids: Dict[str, str]
     switch_ids: Dict[str, str]
 
-    class Config:
-        orm_mode = True
+
 
 class ServerCreate(LabResourceBase):
     serial_number: str
@@ -74,10 +72,9 @@ class ServerCreate(LabResourceBase):
 class Server(ServerCreate):
     id: str
 
-    class Config:
-        orm_mode = True
 
-class SwitchCreate(LabResourceBase):
+
+class Switch(LabResourceBase):
     num_ports: int
     port_speed: int
     model: str
@@ -85,54 +82,18 @@ class SwitchCreate(LabResourceBase):
     serial_number: str
     management_ip: str
 
-class Switch(SwitchCreate):
-    id: str
-
-    class Config:
-        orm_mode = True
-
-class VMCreate(LabResourceBase):
-    serial_number: str
-    board_ip: str
+class VM(LabResourceBase):
+    serialnumber: str
+    boardip: str
     model: str
     os: str
     cores: str
     memory: str
     storage: str
 
-class VM(VMCreate):
-    id: str
 
-    class Config:
-        orm_mode = True
 
-class Datacenter_Labs(BaseModel):
-    datacenter_id: str
-    lab_id: str
 
-    class Config:
-        orm_mode = True
-
-class Lab_Racks(BaseModel):
-    lab_id: str
-    rack_id: str
-
-    class Config:
-        orm_mode = True
-
-class Rack_Servers(BaseModel):
-    rack_id: str
-    server_id: str
-
-    class Config:
-        orm_mode = True
-
-class Rack_Switches(BaseModel):
-    rack_id: str
-    switch_id: str
-
-    class Config:
-        orm_mode = True
 
 def get_db():
     db = SessionLocal()
@@ -145,10 +106,15 @@ db_dependency = Annotated[Session, Depends(get_db)]
 
 models.Base.metadata.create_all(bind=engine)
 
-@app.post("/switches/", response_model=Switch)
-async def add_switch(switch: SwitchCreate, db: db_dependency):
-    db_switch = models.Switch(**switch.dict())
-    db.add(db_switch)
+@app.get("/vms")
+def read_vms(db: db_dependency, skip=0, limit=100):
+    vms = db.query(models.VM).offset(skip).limit(limit).all()
+    return vms
+
+@app.post("/vms/")
+def create_vm(vm: VM, db: db_dependency):
+    db_vm = models.VM(**vm.model_dump(), id=str(uuid.uuid4()))
+    db.add(db_vm)
     db.commit()
-    db.refresh(db_switch)
-    return db_switch
+    db.refresh(db_vm)
+    return vm

@@ -8,6 +8,6 @@ class Server(dbresource.LabResource):
         self.BoardIP = None
         self.Model = None
         self.OS = None
-        self.Cores = None
+        self.Cores = None   
         self.Memory = None
         self.Storage = None
