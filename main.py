@@ -33,34 +33,7 @@ class LabResourceBase(BaseModel):
         extra = 'forbid'
         orm_mode = True
 
-class DatacenterCreate(LabResourceBase):
-    address: str
-
-class Datacenter(DatacenterCreate):
-    id: str
-    lab_ids: List[str]
-
-
-class LabCreate(LabResourceBase):
-    pass
-
-class Lab(LabCreate):
-    id: str
-    rack_ids: List[str]
-
-
-
-class RackCreate(LabResourceBase):
-    pass
-
-class Rack(RackCreate):
-    id: str
-    server_ids: Dict[str, str]
-    switch_ids: Dict[str, str]
-
-
-
-class ServerCreate(LabResourceBase):
+class Server(LabResourceBase):
     serial_number: str
     board_ip: str
     model: str
@@ -69,11 +42,6 @@ class ServerCreate(LabResourceBase):
     memory: str
     storage: str
 
-class Server(ServerCreate):
-    id: str
-
-
-
 class Switch(LabResourceBase):
     num_ports: int
     port_speed: int
@@ -81,6 +49,15 @@ class Switch(LabResourceBase):
     vendor: str
     serial_number: str
     management_ip: str
+    
+class Rack(LabResourceBase):
+    pass
+
+class Lab(LabResourceBase):
+    pass
+
+class Datacenter(LabResourceBase):
+    address: str
 
 class VM(LabResourceBase):
     serialnumber: str
@@ -105,6 +82,139 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 
 models.Base.metadata.create_all(bind=engine)
+
+@app.post("/datacenters/", response_model=Datacenter)
+def create_datacenter(datacenter: Datacenter, lab_ids: List[str], db: db_dependency):
+    db_datacenter = models.Datacenter(**datacenter.model_dump(), id=str(uuid.uuid4()))
+    db.add(db_datacenter)
+
+    for id in lab_ids:
+        db_lab = db.query(models.Lab).filter(models.Lab.id == id).first()
+        if db_lab is None:
+            raise HTTPException(status_code=404, detail=f"Server with ID {id} not found")
+        db_datacenter.labs.append(db_lab)
+
+    db.commit()
+    db.refresh(db_datacenter)
+    return db_datacenter
+
+@app.get("/datacenters")
+def read_datacenters(db: db_dependency, skip=0, limit=100):
+    datacenters = db.query(models.Datacenter).offset(skip).limit(limit).all()
+    return datacenters
+
+@app.get("/datacenters/{datacenter_id}")
+def read_datacenter(datacenter_id: str, db: db_dependency):
+    db_datacenter = db.query(models.Datacenter).filter(models.Datacenter.id == datacenter_id).first()
+    if db_datacenter is None:
+        raise HTTPException(status_code=404, detail="Datacenter not found")
+    return db_datacenter
+
+@app.post("/labs/", response_model=Lab)
+def create_lab(lab: Lab, rack_ids: List[str], db: db_dependency):
+    db_lab = models.Lab(**lab.model_dump(), id=str(uuid.uuid4()))
+    db.add(db_lab)
+
+    for id in rack_ids:
+        db_rack = db.query(models.Rack).filter(models.Rack.id == id).first()
+        if db_rack is None:
+            raise HTTPException(status_code=404, detail=f"Server with ID {id} not found")
+        db_lab.racks.append(db_rack)
+
+    db.commit()
+    db.refresh(db_lab)
+    return db_lab
+
+
+@app.get("/labs")
+def read_labs(db: db_dependency, skip=0, limit=100):
+    labs = db.query(models.Lab).offset(skip).limit(limit).all()
+    return labs
+
+@app.get("/labs/{lab_id}")
+def read_lab(lab_id: str, db: db_dependency):
+    db_lab = db.query(models.Lab).filter(models.Lab.id == lab_id).first()
+    if db_lab is None:
+        raise HTTPException(status_code=404, detail="Lab not found")
+    return db_lab
+
+@app.post("/racks/", response_model=Rack)
+def create_rack(rack: Rack, servers: List[str], switches: List[str], db: db_dependency):
+    db_rack = models.Rack(**rack.model_dump(), id=str(uuid.uuid4()))
+    db.add(db_rack)
+    
+    # Assign server IDs to the rack
+    for server in servers:
+        db_server = db.query(models.Server).filter(models.Server.id == server).first()
+        if db_server is None:
+            raise HTTPException(status_code=404, detail=f"Server with ID {server} not found")
+        db_rack.servers.append(db_server)  # append the server object, not the ID
+    
+    # Assign switch IDs to the rack
+    for switch in switches:
+        db_switch = db.query(models.Switch).filter(models.Switch.id == switch).first()
+        if db_switch is None:
+            raise HTTPException(status_code=404, detail=f"Switch with ID {switch} not found")
+        db_rack.switches.append(db_switch)  # append the switch object, not the ID
+    
+    db.commit()
+    db.refresh(db_rack)
+    return db_rack
+
+
+@app.get("/racks")
+def read_racks(db: db_dependency, skip=0, limit=100):
+    racks = db.query(models.Rack).offset(skip).limit(limit).all()
+    return racks
+
+@app.get("/racks/{rack_id}")
+def read_rack(rack_id: str, db: db_dependency):
+    db_rack = db.query(models.Rack).filter(models.Rack.id == rack_id).first()
+    if db_rack is None:
+        raise HTTPException(status_code=404, detail="Rack not found")
+    return db_rack
+
+@app.post("/servers/", response_model=Server)
+def create_server(server: Server, db: db_dependency):
+    db_server = models.Server(**server.model_dump(), id=str(uuid.uuid4()))
+    db.add(db_server)
+    db.commit()
+    db.refresh(db_server)
+    return db_server
+
+@app.get("/servers")
+def read_servers(db: db_dependency, skip=0, limit=100):
+    servers = db.query(models.Server).offset(skip).limit(limit).all()
+    return servers
+
+@app.get("/servers/{server_id}")
+def read_server(server_id: str, db: db_dependency):
+    db_server = db.query(models.Server).filter(models.Server.id == server_id).first()
+    if db_server is None:
+        raise HTTPException(status_code=404, detail="Server not found")
+    return db_server
+
+@app.post("/switches/", response_model=Switch)
+def create_switch(switch: Switch, db: db_dependency):
+    db_switch = models.Switch(**switch.model_dump(), id=str(uuid.uuid4()))
+    db.add(db_switch)
+    db.commit()
+    db.refresh(db_switch)
+    return db_switch
+
+@app.get("/switches")
+def read_switches(db: db_dependency, skip=0, limit=100):
+    switches = db.query(models.Switch).offset(skip).limit(limit).all()
+    return switches
+
+@app.get("/switches/{switch_id}")
+def read_switch(switch_id: str, db: db_dependency):
+    db_switch = db.query(models.Switch).filter(models.Switch.id == switch_id).first()
+    if db_switch is None:
+        raise HTTPException(status_code=404, detail="Switch not found")
+    return db_switch
+
+
 
 @app.get("/vms")
 def read_vms(db: db_dependency, skip=0, limit=100):

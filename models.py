@@ -26,6 +26,7 @@ class BaseModel(Base):
     
 class Datacenter(BaseModel):
     __tablename__ = 'datacenters'
+    address = Column(String)
     labs = relationship("Lab", back_populates="datacenter")
 
 class Lab(BaseModel):
