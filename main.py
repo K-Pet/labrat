@@ -15,10 +15,6 @@ app.include_router(auth.router)
 
 origins = [
     'http://localhost:3000',
-    'http://localhost',
-    'https://localhost',
-    'http://localhost:8080',
-    'http://127.0.0.1:5500/'
 ]
 
 app.add_middleware(
@@ -70,9 +66,6 @@ class VM(LabResourceBase):
     cores: str
     memory: str
     storage: str
-
-
-
 
 
 def get_db():
@@ -215,3 +208,28 @@ def get_all_vms(db: db_dependency, user: user_dependency):
 def get_vms_by_owner(owner_username: str, db: db_dependency):
     db_vms = db.query(models.VM).filter(models.VM.owner == owner_username).all()
     return db_vms
+
+@app.get("/datacenters/{owner_username}", response_model=List[Datacenter])
+def get_datacenters_by_owner(owner_username: str, db: db_dependency):
+    db_datacenters = db.query(models.Datacenter).filter(models.Datacenter.owner == owner_username).all()
+    return db_datacenters
+
+@app.get("/labs/{owner_username}", response_model=List[Lab])
+def get_labs_by_owner(owner_username: str, db: db_dependency):
+    db_labs = db.query(models.Lab).filter(models.Lab.owner == owner_username).all()
+    return db_labs
+
+@app.get("/racks/{owner_username}", response_model=List[Rack])
+def get_racks_by_owner(owner_username: str, db: db_dependency):
+    db_racks = db.query(models.Rack).filter(models.Rack.owner == owner_username).all()
+    return db_racks
+
+@app.get("/servers/{owner_username}", response_model=List[Server])
+def get_servers_by_owner(owner_username: str, db: db_dependency):
+    db_servers = db.query(models.Server).filter(models.Server.owner == owner_username).all()
+    return db_servers
+
+@app.get("/switches/{owner_username}", response_model=List[Switch])
+def get_switches_by_owner(owner_username: str, db: db_dependency):
+    db_switches = db.query(models.Switch).filter(models.Switch.owner == owner_username).all()
+    return db_switches

@@ -1,11 +1,23 @@
-import React, {useState, useEffect} from 'react';
-import api from './api';
+import React, { useState } from 'react';
+import logo from './logo.svg';
+import './App.css';
+import { Login } from './Login';
+import { Register } from './Register';
 
+function App() {
+  const [currentForm, setCurrentForm] = useState("login"); // ['login', 'register'
 
-const App = () => {
-  const [data, setData] = useState([]);
-  cons
+  const handleFormChange = (formName) => {
+    setCurrentForm(formName);
+  }
+  
+  return (
+    <div className="App">
+    {
+      currentForm === "login" ? <Login onFormSwitch={handleFormChange}/> : <Register onFormSwitch={handleFormChange}/>
+    }
+    </div>
+  );
 }
-
 
 export default App;
