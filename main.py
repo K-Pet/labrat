@@ -29,7 +29,6 @@ app.add_middleware(
 class LabResourceBase(BaseModel):
     name: str
     description: str
-    owner: str
     creation_time: str
     last_modified_time: str
     labels: list
@@ -94,10 +93,17 @@ async def user(user: user_dependency, db: db_dependency):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in")
     return {"User": user}
 
+@app.get("/users/", status_code=status.HTTP_200_OK)
+def get_all_users(db: db_dependency, user: user_dependency):
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not logged in")
+    users = db.query(models.User).all()
+    return users
+
 
 @app.post("/datacenters/", response_model=Datacenter)
-def create_datacenter(datacenter: Datacenter, lab_ids: List[str], db: db_dependency):
-    db_datacenter = models.Datacenter(**datacenter.model_dump(), id=str(uuid.uuid4()))
+def create_datacenter(datacenter: Datacenter, lab_ids: List[str], db: db_dependency, user: user_dependency):
+    db_datacenter = models.Datacenter(**datacenter.model_dump(), id=str(uuid.uuid4()), owner=user.username)
     db.add(db_datacenter)
 
     for id in lab_ids:
@@ -110,21 +116,9 @@ def create_datacenter(datacenter: Datacenter, lab_ids: List[str], db: db_depende
     db.refresh(db_datacenter)
     return db_datacenter
 
-@app.get("/datacenters")
-def read_datacenters(db: db_dependency, skip=0, limit=100):
-    datacenters = db.query(models.Datacenter).offset(skip).limit(limit).all()
-    return datacenters
-
-@app.get("/datacenters/{datacenter_id}")
-def read_datacenter(datacenter_id: str, db: db_dependency):
-    db_datacenter = db.query(models.Datacenter).filter(models.Datacenter.id == datacenter_id).first()
-    if db_datacenter is None:
-        raise HTTPException(status_code=404, detail="Datacenter not found")
-    return db_datacenter
-
 @app.post("/labs/", response_model=Lab)
-def create_lab(lab: Lab, rack_ids: List[str], db: db_dependency):
-    db_lab = models.Lab(**lab.model_dump(), id=str(uuid.uuid4()))
+def create_lab(lab: Lab, rack_ids: List[str], db: db_dependency, user: user_dependency):
+    db_lab = models.Lab(**lab.model_dump(), id=str(uuid.uuid4()), owner=user.username)
     db.add(db_lab)
 
     for id in rack_ids:
@@ -138,21 +132,9 @@ def create_lab(lab: Lab, rack_ids: List[str], db: db_dependency):
     return db_lab
 
 
-@app.get("/labs")
-def read_labs(db: db_dependency, skip=0, limit=100):
-    labs = db.query(models.Lab).offset(skip).limit(limit).all()
-    return labs
-
-@app.get("/labs/{lab_id}")
-def read_lab(lab_id: str, db: db_dependency):
-    db_lab = db.query(models.Lab).filter(models.Lab.id == lab_id).first()
-    if db_lab is None:
-        raise HTTPException(status_code=404, detail="Lab not found")
-    return db_lab
-
 @app.post("/racks/", response_model=Rack)
-def create_rack(rack: Rack, servers: List[str], switches: List[str], db: db_dependency):
-    db_rack = models.Rack(**rack.model_dump(), id=str(uuid.uuid4()))
+def create_rack(rack: Rack, servers: List[str], switches: List[str], db: db_dependency, user: user_dependency):
+    db_rack = models.Rack(**rack.model_dump(), id=str(uuid.uuid4()), owner=user.username)
     db.add(db_rack)
     
     # Assign server IDs to the rack
@@ -174,69 +156,62 @@ def create_rack(rack: Rack, servers: List[str], switches: List[str], db: db_depe
     return db_rack
 
 
-@app.get("/racks")
-def read_racks(db: db_dependency, skip=0, limit=100):
-    racks = db.query(models.Rack).offset(skip).limit(limit).all()
-    return racks
-
-@app.get("/racks/{rack_id}")
-def read_rack(rack_id: str, db: db_dependency):
-    db_rack = db.query(models.Rack).filter(models.Rack.id == rack_id).first()
-    if db_rack is None:
-        raise HTTPException(status_code=404, detail="Rack not found")
-    return db_rack
-
 @app.post("/servers/", response_model=Server)
-def create_server(server: Server, db: db_dependency):
-    db_server = models.Server(**server.model_dump(), id=str(uuid.uuid4()))
+def create_server(server: Server, db: db_dependency, user: user_dependency):
+    db_server = models.Server(**server.model_dump(), id=str(uuid.uuid4()), owner=user.username)
     db.add(db_server)
     db.commit()
     db.refresh(db_server)
     return db_server
 
-@app.get("/servers")
-def read_servers(db: db_dependency, skip=0, limit=100):
-    servers = db.query(models.Server).offset(skip).limit(limit).all()
-    return servers
-
-@app.get("/servers/{server_id}")
-def read_server(server_id: str, db: db_dependency):
-    db_server = db.query(models.Server).filter(models.Server.id == server_id).first()
-    if db_server is None:
-        raise HTTPException(status_code=404, detail="Server not found")
-    return db_server
-
 @app.post("/switches/", response_model=Switch)
-def create_switch(switch: Switch, db: db_dependency):
-    db_switch = models.Switch(**switch.model_dump(), id=str(uuid.uuid4()))
+def create_switch(switch: Switch, db: db_dependency, user: user_dependency):
+    db_switch = models.Switch(**switch.model_dump(), id=str(uuid.uuid4()), owner=user.username)
     db.add(db_switch)
     db.commit()
     db.refresh(db_switch)
     return db_switch
 
-@app.get("/switches")
-def read_switches(db: db_dependency, skip=0, limit=100):
-    switches = db.query(models.Switch).offset(skip).limit(limit).all()
-    return switches
-
-@app.get("/switches/{switch_id}")
-def read_switch(switch_id: str, db: db_dependency):
-    db_switch = db.query(models.Switch).filter(models.Switch.id == switch_id).first()
-    if db_switch is None:
-        raise HTTPException(status_code=404, detail="Switch not found")
-    return db_switch
-
-
-
-@app.get("/vms")
-def read_vms(db: db_dependency, skip=0, limit=100):
-    vms = db.query(models.VM).offset(skip).limit(limit).all()
-    return vms
-
 @app.post("/vms/")
-def create_vm(vm: VM, db: db_dependency):
-    db_vm = models.VM(**vm.model_dump(), id=str(uuid.uuid4()))
+def create_vm(vm: VM, db: db_dependency, user: user_dependency):
+    db_vm = models.VM(**vm.model_dump(), id=str(uuid.uuid4()), owner=user.username)
     db.add(db_vm)
     db.commit()
     db.refresh(db_vm)
     return vm
+
+
+@app.get("/datacenters/", response_model=List[Datacenter])
+def get_all_datacenters(db: db_dependency, user: user_dependency):
+    db_datacenters = db.query(models.Datacenter).filter(models.Datacenter.owner == user.username).all()
+    return db_datacenters
+
+@app.get("/labs/", response_model=List[Lab])
+def get_all_labs(db: db_dependency, user: user_dependency):
+    db_labs = db.query(models.Lab).filter(models.Lab.owner == user.username).all()
+    return db_labs
+
+@app.get("/racks/", response_model=List[Rack])
+def get_all_racks(db: db_dependency, user: user_dependency):
+    db_racks = db.query(models.Rack).filter(models.Rack.owner == user.username).all()
+    return db_racks
+
+@app.get("/servers/", response_model=List[Server])
+def get_all_servers(db: db_dependency, user: user_dependency):
+    db_servers = db.query(models.Server).filter(models.Server.owner == user.username).all()
+    return db_servers
+
+@app.get("/switches/", response_model=List[Switch])
+def get_all_switches(db: db_dependency, user: user_dependency):
+    db_switches = db.query(models.Switch).filter(models.Switch.owner == user.username).all()
+    return db_switches
+
+@app.get("/vms/", response_model=List[VM])
+def get_all_vms(db: db_dependency, user: user_dependency):
+    db_vms = db.query(models.VM).filter(models.VM.owner == user.username).all()
+    return db_vms
+    
+@app.get("/vms/{owner_username}", response_model=List[VM])
+def get_vms_by_owner(owner_username: str, db: db_dependency):
+    db_vms = db.query(models.VM).filter(models.VM.owner == owner_username).all()
+    return db_vms
